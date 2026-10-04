@@ -1,0 +1,7 @@
+# 本地参考图片 / 素材（体积大，不入库）
+.uploads/
+
+# 系统与日志
+.DS_Store
+Thumbs.db
+*.log

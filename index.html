@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>锚定杯方位标记系统</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Microsoft YaHei',sans-serif;background:#1a1a2e;color:#eee;overflow:hidden;height:100vh}
+#header{display:flex;justify-content:space-between;align-items:center;padding:8px 20px;background:#16213e;border-bottom:1px solid #0f3460}
+#title{font-size:17px;color:#e94560}
+#toggleBtn{padding:6px 16px;background:#0f3460;color:#eee;border:1px solid #e94560;border-radius:4px;cursor:pointer;font-size:14px}
+#toggleBtn:hover{background:#e94560}
+#main{display:flex;height:calc(100vh - 42px)}
+#leftPanel{width:210px;padding:12px;background:#16213e;overflow-y:auto;border-right:1px solid #0f3460;flex-shrink:0}
+#leftPanel h3{color:#e94560;margin-bottom:10px;font-size:14px}
+.sg{margin-bottom:12px}
+.sg label{display:block;font-size:12px;margin-bottom:4px;color:#aaa}
+.sg input[type=range]{width:100%}
+.sg span{display:inline-block;margin-left:4px;color:#e94560;font-size:12px}
+#ad{padding:8px;background:#0f3460;border-radius:4px;font-size:11px;line-height:1.6}
+.ctrl-btn{width:100%;margin:10px 0;padding:8px;border:none;border-radius:6px;background:#e94560;color:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:background .2s}
+.ctrl-btn:hover{background:#ff6b80}
+#cc{flex:1;position:relative;min-width:0}
+#tc{width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+#tc:active{cursor:grabbing}
+#ft{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);font-size:11px;color:#666;white-space:nowrap}
+#rp{width:320px;padding:12px;background:#16213e;overflow-y:auto;border-left:1px solid #0f3460;flex-shrink:0}
+#rp h3{color:#e94560;margin-bottom:8px;font-size:14px}
+#fup{margin-bottom:12px;font-size:12px;color:#aaa}
+#genBtn{padding:6px 16px;background:#e94560;color:#fff;border:none;border-radius:4px;cursor:pointer;margin-bottom:8px;font-size:13px}
+#genBtn:hover{opacity:0.85}
+.ol{font-size:11px;color:#888;margin-bottom:3px;margin-top:6px}
+textarea{width:100%;height:110px;background:#0d1b3e;color:#cde;border:1px solid #0f3460;border-radius:4px;padding:6px;font-size:11px;resize:vertical;font-family:monospace}
+.drag-panel{position:absolute;z-index:100;touch-action:none;user-select:none;background:#16213e;border:1px solid #0f3460;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.4)}
+.drag-panel .ph{cursor:move;padding:5px 10px;background:#0f3460;border-radius:6px 6px 0 0;font-size:12px;color:#e94560;display:flex;justify-content:space-between;align-items:center}
+.drag-panel .pb{padding:8px}
+#refImg{max-width:260px;display:block;pointer-events:none;border-radius:4px}
+#mkrOv{position:absolute;top:0;left:0;width:100%;height:100%}
+.mkr{position:absolute;width:22px;height:22px;border-radius:50%;border:2px solid #fff;transform:translate(-50%,-50%);cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;font-weight:bold;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.5)}
+.mkr.locked{border-style:dashed;cursor:default}
+.mk-f{background:rgba(60,120,255,.85)}.mk-b{background:rgba(255,140,50,.85)}.mk-l{background:rgba(255,50,50,.85)}.mk-r{background:rgba(50,200,50,.85)}
+#mc{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+#mc button{padding:3px 8px;font-size:11px;border:1px solid #0f3460;background:#0f3460;color:#eee;border-radius:3px;cursor:pointer}
+#mc button.act{background:#e94560;border-color:#e94560}
+#mc button:hover{border-color:#e94560}
+.hint{font-size:11px;color:#666;margin-top:8px}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
+</script>
+</head>
+<body>
+<div id="header">
+  <h1 id="title">锚定杯方位标记系统</h1>
+  <button id="toggleBtn">切换人像</button>
+</div>
+<div id="main">
+  <div id="leftPanel">
+    <h3>旋转控制</h3>
+    <div class="sg"><label>X轴旋转 (左右维度)</label><input type="range" id="rx" min="-180" max="180" value="0" step="1"><span id="rxv">0°</span></div>
+    <div class="sg"><label>Y轴旋转 (上下维度)</label><input type="range" id="ry" min="-180" max="180" value="0" step="1"><span id="ryv">0°</span></div>
+    <div class="sg"><label>Z轴旋转 (前后维度)</label><input type="range" id="rz" min="-180" max="180" value="0" step="1"><span id="rzv">0°</span></div>
+    <div id="ad">X: 0°<br>Y: 0°<br>Z: 0°<br>(沿物体自身XYZ轴)</div>
+    <button id="resetBtn" class="ctrl-btn">↺ 复位（三轴归零）</button>
+    <p class="hint">也可在3D视图中鼠标拖拽旋转</p>
+  </div>
+  <div id="cc">
+    <canvas id="tc"></canvas>
+    <div id="ft">上下前后左右均为物体自身上下前后左右</div>
+    <div id="ip" class="drag-panel" style="display:none;top:10px;right:10px;width:auto">
+      <div class="ph"><span>实物图参考</span><button id="rmImg" style="background:none;border:none;color:#e94560;cursor:pointer;font-size:12px">移除</button></div>
+      <div class="pb">
+        <div style="position:relative;display:inline-block">
+          <img id="refImg">
+          <div id="mkrOv"></div>
+        </div>
+        <div id="mc">
+          <button data-d="前">前</button>
+          <button data-d="后">后</button>
+          <button data-d="左">左</button>
+          <button data-d="右">右</button>
+          <button id="cfM">确认</button>
+          <button id="clM">清除</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="rp">
+    <h3>实物图上传</h3>
+    <div id="fup"><input type="file" id="fupI" accept="image/*"></div>
+    <h3>约束输出</h3>
+    <button id="genBtn">生成约束</button>
+    <div class="ol">软约束（提示词）:</div>
+    <textarea id="so" readonly></textarea>
+    <div class="ol">硬约束（JSON）:</div>
+    <textarea id="ho" readonly></textarea>
+  </div>
+</div>
+<script type="module">
+import * as THREE from 'three';
+
+// ===== Scene =====
+const canvas = document.getElementById('tc');
+const renderer = new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(window.devicePixelRatio);
+function resizeR(){const w=canvas.clientWidth,h=canvas.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x1a1a2e);
+const camera = new THREE.PerspectiveCamera(30,1,0.1,100); camera.position.set(0,0,5);
+scene.add(new THREE.AmbientLight(0xffffff,0.65));
+const dl1=new THREE.DirectionalLight(0xffffff,0.8); dl1.position.set(2,3,4); scene.add(dl1);
+const dl2=new THREE.DirectionalLight(0xffffff,0.3); dl2.position.set(-2,-1,-3); scene.add(dl2);
+// PMREM environment for realistic metal reflections
+const pmrem = new THREE.PMREMGenerator(renderer);
+const envScene = new THREE.Scene();
+envScene.background = new THREE.Color(0x222233);
+envScene.add(new THREE.AmbientLight(0xffffff,1.2));
+const el1=new THREE.DirectionalLight(0xffffff,0.6); el1.position.set(5,5,5); envScene.add(el1);
+const el2=new THREE.DirectionalLight(0xaaccff,0.4); el2.position.set(-5,2,-3); envScene.add(el2);
+const envRT = pmrem.fromScene(envScene,0.04);
+scene.environment = envRT.texture;
+resizeR(); window.addEventListener('resize',resizeR);
+
+// ===== Materials =====
+const cupM=new THREE.MeshStandardMaterial({color:0xb87333,roughness:0.28,metalness:0.85});
+const cupIM=new THREE.MeshStandardMaterial({color:0x8a5a2b,roughness:0.35,metalness:0.82,side:THREE.BackSide});
+const hndM=new THREE.MeshStandardMaterial({color:0xa06020,roughness:0.28,metalness:0.85});
+const patM=new THREE.MeshStandardMaterial({color:0xe94560,roughness:0.3,metalness:0.2});
+const skinM=new THREE.MeshStandardMaterial({color:0xf2d4bc,roughness:0.72,metalness:0.0});
+const hairM=new THREE.MeshStandardMaterial({color:0x1a0f08,roughness:0.8});
+const clothM=new THREE.MeshStandardMaterial({color:0xe8d8c8,roughness:0.7});
+const pantsM=new THREE.MeshStandardMaterial({color:0x5a4a3a,roughness:0.7});
+const shoeM=new THREE.MeshStandardMaterial({color:0x222222,roughness:0.5});
+const petalM=new THREE.MeshStandardMaterial({color:0xff8090,roughness:0.5});
+const centerM=new THREE.MeshStandardMaterial({color:0xffdd44,roughness:0.4});
+
+// ===== Anchor Group (rotates) =====
+const ag = new THREE.Group(); scene.add(ag);
+let mode='cup';
+
+// ===== Cup =====
+const cg = new THREE.Group();
+const CH=1.2, CR=0.35, CRI=0.32;
+cg.add(new THREE.Mesh(new THREE.CylinderGeometry(CR,CR*0.88,CH,48,1,true),cupM));
+cg.add(new THREE.Mesh(new THREE.CylinderGeometry(CRI,CRI*0.88,CH*0.98,48,1,true),cupIM));
+// Solid outer bottom (visible from both sides)
+const bot=new THREE.Mesh(new THREE.CircleGeometry(CR*0.88,48),cupM); bot.rotation.x=-Math.PI/2; bot.position.y=-CH/2; bot.material.side=THREE.DoubleSide; cg.add(bot);
+// Inner floor (bottom of the cavity, metal)
+const floor=new THREE.Mesh(new THREE.CircleGeometry(CRI*0.88,48),cupIM); floor.rotation.x=-Math.PI/2; floor.position.y=-CH*0.98/2+0.005; floor.material.side=THREE.DoubleSide; cg.add(floor);
+// Thin base ring for a grounded look
+const base=new THREE.Mesh(new THREE.CylinderGeometry(CR*0.92,CR*0.88,0.06,48),hndM); base.position.y=-CH/2-0.025; cg.add(base);
+const rim=new THREE.Mesh(new THREE.RingGeometry(CRI,CR,48),cupM); rim.rotation.x=-Math.PI/2; rim.position.y=CH/2; cg.add(rim);
+// C-shaped handle: ends embed into the cup wall (connected), bow leaves finger space
+const hnd=new THREE.Mesh(new THREE.TorusGeometry(0.17,0.048,14,32,Math.PI),hndM);
+hnd.position.set(CR*0.86,0,0);            // ends sink into cup wall so it looks fused
+hnd.rotation.set(0,0,-Math.PI/2);         // C opens toward cup (-X), bows toward +X
+cg.add(hnd);
+// Star pattern on front (+Z)
+const ss=new THREE.Shape();
+for(let i=0;i<10;i++){const a=i/10*Math.PI*2-Math.PI/2;const r=i%2?0.03:0.07;const x=Math.cos(a)*r,y=Math.sin(a)*r;i?ss.lineTo(x,y):ss.moveTo(x,y);}
+const pat=new THREE.Mesh(new THREE.ShapeGeometry(ss),patM); pat.position.set(0,0,CR+0.002); cg.add(pat);
+ag.add(cg);
+
+// ===== Human =====
+const hg = new THREE.Group();
+hg.position.y = 0; // torso center at origin
+const HR=0.19;                  // head radius -> head height ~0.38 (7-head => total ~2.66)
+const HCY=0.70;                 // head center Y; torso center (~0) at coordinate origin
+
+// ---- Head (smooth oval, East Asian face) ----
+const head=new THREE.Mesh(new THREE.SphereGeometry(HR,40,40),skinM);
+head.scale.set(0.82,1.06,0.88); head.position.y=HCY; hg.add(head);
+
+// ---- Hair: short, close-fitting to scalp ----
+// Top cap (front hair just above the eyes, forehead covered)
+const ht=new THREE.Mesh(new THREE.SphereGeometry(HR*1.06,40,40,0,Math.PI*2,0,Math.PI*0.34),hairM);
+ht.scale.copy(head.scale); ht.position.y=HCY; hg.add(ht);
+// Back skull cap (fills back of head, close to scalp)
+const bh=new THREE.Mesh(new THREE.SphereGeometry(HR*1.08,40,40,Math.PI,Math.PI,0,Math.PI*0.88),hairM);
+bh.scale.copy(head.scale); bh.position.y=HCY; hg.add(bh);
+// Short side strands
+const shG=new THREE.CylinderGeometry(0.018,0.014,0.18,12);
+const shL=new THREE.Mesh(shG,hairM); shL.position.set(-HR*0.8,HCY-0.06,0.02); hg.add(shL);
+const shR=shL.clone(); shR.position.x=HR*0.8; hg.add(shR);
+// Soft bangs above eyebrows
+const bg=new THREE.Mesh(new THREE.SphereGeometry(HR*1.05,32,16,0,Math.PI*2,0,Math.PI*0.26),hairM);
+bg.scale.set(0.82,0.36,0.82); bg.position.set(0,HCY+0.15,0.045); hg.add(bg);
+
+// ---- Face (flat, delicate, natural) ----
+// Eyes - round and clear
+const ewM=new THREE.MeshStandardMaterial({color:0xfafafa,roughness:0.35,side:THREE.DoubleSide});
+const irM=new THREE.MeshStandardMaterial({color:0x3a2418,roughness:0.25,side:THREE.DoubleSide});
+const puM=new THREE.MeshStandardMaterial({color:0x0a0a0a,roughness:0.12,side:THREE.DoubleSide});
+const hlM=new THREE.MeshStandardMaterial({color:0xffffff,emissive:0xffffff,emissiveIntensity:0.6,side:THREE.DoubleSide});
+const EY=HCY+0.028, EX=0.072, EZ=0.162;
+const ewG=new THREE.CircleGeometry(0.03,30); ewG.scale(1.05,0.85,1);
+const ewL=new THREE.Mesh(ewG,ewM); ewL.position.set(-EX,EY,EZ); hg.add(ewL);
+const ewR=ewL.clone(); ewR.position.x=EX; hg.add(ewR);
+const irG=new THREE.CircleGeometry(0.019,26);
+const irL=new THREE.Mesh(irG,irM); irL.position.set(-EX,EY,EZ+0.002); hg.add(irL);
+const irR=irL.clone(); irR.position.x=EX; hg.add(irR);
+const puG=new THREE.CircleGeometry(0.009,20);
+const puL=new THREE.Mesh(puG,puM); puL.position.set(-EX,EY,EZ+0.004); hg.add(puL);
+const puR=puL.clone(); puR.position.x=EX; hg.add(puR);
+const hlG=new THREE.CircleGeometry(0.005,12);
+const hlL=new THREE.Mesh(hlG,hlM); hlL.position.set(-EX+0.006,EY+0.006,EZ+0.006); hg.add(hlL);
+const hlR=hlL.clone(); hlR.position.x=EX-0.006; hg.add(hlR);
+// Upper lash line (thin)
+const liM=new THREE.MeshStandardMaterial({color:0x2a1810,roughness:0.6,side:THREE.DoubleSide});
+const liG=new THREE.TorusGeometry(0.026,0.0025,6,22,Math.PI*0.95);
+const liL=new THREE.Mesh(liG,liM); liL.position.set(-EX,EY+0.018,EZ+0.004); liL.rotation.z=Math.PI; hg.add(liL);
+const liR=liL.clone(); liR.position.x=EX; hg.add(liR);
+// Willow-leaf eyebrows (soft arch)
+const brM=new THREE.MeshStandardMaterial({color:0x3a2418,roughness:0.8});
+const brG=new THREE.TorusGeometry(0.042,0.0035,8,24,Math.PI*0.45);
+const brL=new THREE.Mesh(brG,brM); brL.position.set(-EX,HCY+0.072,EZ+0.003); brL.rotation.z=-Math.PI*0.1; hg.add(brL);
+const brR=brL.clone(); brR.position.x=EX; brR.rotation.z=Math.PI*0.1; hg.add(brR);
+// Nose (small, delicate)
+const nb=new THREE.Mesh(new THREE.BoxGeometry(0.014,0.04,0.01),skinM); nb.position.set(0,HCY+0.004,EZ+0.005); hg.add(nb);
+const nt=new THREE.Mesh(new THREE.SphereGeometry(0.011,16,16),skinM); nt.position.set(0,HCY-0.016,EZ+0.006); nt.scale.set(1.05,0.7,0.55); hg.add(nt);
+// Lips (natural)
+const lpM=new THREE.MeshStandardMaterial({color:0xd88a82,roughness:0.45});
+const ul=new THREE.Mesh(new THREE.TorusGeometry(0.02,0.006,8,18,Math.PI),lpM); ul.position.set(0,HCY-0.046,EZ-0.002); ul.rotation.z=Math.PI; hg.add(ul);
+const ll=new THREE.Mesh(new THREE.TorusGeometry(0.022,0.007,8,18,Math.PI),lpM); ll.position.set(0,HCY-0.058,EZ-0.002); hg.add(ll);
+// Chin
+const chn=new THREE.Mesh(new THREE.SphereGeometry(0.026,16,16),skinM); chn.position.set(0,HCY-0.085,0.15); chn.scale.set(0.78,0.48,0.5); hg.add(chn);
+// Ears
+const earG=new THREE.SphereGeometry(0.022,16,16); earG.scale(0.45,0.95,0.55);
+const earL=new THREE.Mesh(earG,skinM); earL.position.set(-HR*0.82,HCY-0.004,0); hg.add(earL);
+const earR=earL.clone(); earR.position.x=HR*0.82; hg.add(earR);
+
+// ---- Body: 7-head proportions, ALL parts connected end-to-end, torso center at origin ----
+// Head bottom ~ HCY - HR*1.06 = 0.70 - 0.201 = 0.499
+// Neck: connects head bottom to chest top
+const neck=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.12,20),skinM);
+neck.position.y=HCY-0.26; hg.add(neck);                       // center 0.44, top 0.50, bottom 0.38
+// Chest (casual top): top 0.38, bottom 0.06
+const chest=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.18,0.32,32),clothM);
+chest.position.set(0,0.22,0); hg.add(chest);                  // center 0.22, top 0.38, bottom 0.06
+// Waist: top 0.06, bottom -0.10
+const waist=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.2,0.16,32),clothM);
+waist.position.set(0,-0.02,0); hg.add(waist);                 // center -0.02, top 0.06, bottom -0.10
+// Hips (casual bottoms): top -0.10, bottom -0.32
+const hips=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.17,0.22,32),pantsM);
+hips.position.set(0,-0.21,0); hg.add(hips);                   // center -0.21, top -0.10, bottom -0.32
+// Shoulder caps (at chest top, y~0.36)
+const shCapG=new THREE.SphereGeometry(0.065,18,18);
+hg.add(new THREE.Mesh(shCapG,clothM).translateX(-0.25).translateY(0.35));
+hg.add(new THREE.Mesh(shCapG,clothM).translateX(0.25).translateY(0.35));
+// Upper arms (straight down): top 0.35, bottom 0.05
+const uArmG=new THREE.CylinderGeometry(0.038,0.03,0.30,16);
+hg.add(new THREE.Mesh(uArmG,clothM).translateX(-0.26).translateY(0.20));
+hg.add(new THREE.Mesh(uArmG,clothM).translateX(0.26).translateY(0.20));
+// Forearms: top 0.05, bottom -0.23
+const fArmG=new THREE.CylinderGeometry(0.03,0.024,0.28,16);
+hg.add(new THREE.Mesh(fArmG,skinM).translateX(-0.26).translateY(-0.09));
+hg.add(new THREE.Mesh(fArmG,skinM).translateX(0.26).translateY(-0.09));
+// Hands (at forearm bottom)
+const handG=new THREE.SphereGeometry(0.032,16,16); handG.scale(0.8,1.1,0.5);
+hg.add(new THREE.Mesh(handG,skinM).translateX(-0.26).translateY(-0.26));
+hg.add(new THREE.Mesh(handG,skinM).translateX(0.26).translateY(-0.26));
+// Thighs: top -0.32, bottom -0.72
+const thG=new THREE.CylinderGeometry(0.058,0.042,0.40,16);
+hg.add(new THREE.Mesh(thG,pantsM).translateX(-0.095).translateY(-0.52));
+hg.add(new THREE.Mesh(thG,pantsM).translateX(0.095).translateY(-0.52));
+// Calves: top -0.72, bottom -1.12
+const cfG=new THREE.CylinderGeometry(0.042,0.028,0.40,16);
+hg.add(new THREE.Mesh(cfG,pantsM).translateX(-0.095).translateY(-0.92));
+hg.add(new THREE.Mesh(cfG,pantsM).translateX(0.095).translateY(-0.92));
+// Feet (at calf bottom, pointing forward +Z)
+const ftG=new THREE.BoxGeometry(0.075,0.05,0.17);
+hg.add(new THREE.Mesh(ftG,shoeM).translateX(-0.095).translateY(-1.145).translateZ(0.04));
+hg.add(new THREE.Mesh(ftG,shoeM).translateX(0.095).translateY(-1.145).translateZ(0.04));
+
+// Chest flower (front marker)
+const flower=new THREE.Group();
+for(let i=0;i<5;i++){const a=i/5*Math.PI*2;const p=new THREE.Mesh(new THREE.SphereGeometry(0.02,12,12),petalM);p.position.set(Math.cos(a)*0.026,Math.sin(a)*0.026,0);p.scale.set(1,0.5,0.4);flower.add(p);}
+flower.add(new THREE.Mesh(new THREE.SphereGeometry(0.013,12,12),centerM));
+flower.position.set(0,0.24,0.222); hg.add(flower);
+
+hg.visible=false; ag.add(hg);
+
+// ===== Axes =====
+const axisG = new THREE.Group(); ag.add(axisG);
+const AX_LEN=1.0, IN_R=0.4;
+const cols={x:0xff4040, y:0x40ff40, z:0x4080ff};
+const axisHalves=[];
+const camDir=new THREE.Vector3(0,0,1);
+
+function mkLine(pts,color,dashed){
+  const geo=new THREE.BufferGeometry().setFromPoints(pts);
+  let mat;
+  if(dashed){mat=new THREE.LineDashedMaterial({color,dashSize:0.05,gapSize:0.05,depthTest:false,transparent:true});}
+  else{mat=new THREE.LineBasicMaterial({color,depthTest:false,transparent:true});}
+  const l=new THREE.Line(geo,mat); l.renderOrder=999;
+  if(dashed)l.computeLineDistances();
+  return l;
+}
+
+function mkHalf(dir,color){
+  const g=new THREE.Group();
+  const d=new THREE.Vector3(...dir);
+  const inE=d.clone().multiplyScalar(IN_R);
+  const outE=d.clone().multiplyScalar(AX_LEN);
+  // outside (always solid)
+  g.add(mkLine([inE,outE],color,false));
+  // inside solid
+  const is=mkLine([new THREE.Vector3(),inE],color,false); g.add(is);
+  // inside dashed
+  const id=mkLine([new THREE.Vector3(),inE],color,true); id.visible=false; g.add(id);
+  axisG.add(g);
+  axisHalves.push({dir:d,inSolid:is,inDashed:id});
+}
+mkHalf([1,0,0],cols.x); mkHalf([-1,0,0],cols.x);
+mkHalf([0,1,0],cols.y); mkHalf([0,-1,0],cols.y);
+mkHalf([0,0,1],cols.z); mkHalf([0,0,-1],cols.z);
+
+// Labels
+function mkLabel(text,color){
+  const c=document.createElement('canvas');c.width=128;c.height=64;
+  const x=c.getContext('2d');x.fillStyle=color;x.font='bold 40px Arial';x.textAlign='center';x.textBaseline='middle';x.fillText(text,64,32);
+  const t=new THREE.CanvasTexture(c);const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,depthTest:false,transparent:true}));s.scale.set(0.16,0.08,1);return s;
+}
+const labels=[
+  {t:'左',p:[AX_LEN+0.06,0,0],c:'#ff4040'},
+  {t:'右',p:[-(AX_LEN+0.06),0,0],c:'#ff4040'},
+  {t:'上',p:[0,AX_LEN+0.06,0],c:'#40ff40'},
+  {t:'下',p:[0,-(AX_LEN+0.06),0],c:'#40ff40'},
+  {t:'前',p:[0,0,AX_LEN+0.06],c:'#4080ff'},
+  {t:'后',p:[0,0,-(AX_LEN+0.06)],c:'#4080ff'},
+];
+labels.forEach(l=>{const s=mkLabel(l.t,l.c);s.position.set(...l.p);axisG.add(s);});
+
+function updateAxisVis(){
+  axisHalves.forEach(h=>{
+    const wd=h.dir.clone().applyEuler(ag.rotation);
+    const dot=wd.dot(camDir);
+    if(dot<0){h.inSolid.visible=false;h.inDashed.visible=true;}
+    else{h.inSolid.visible=true;h.inDashed.visible=false;}
+  });
+}
+
+// ===== Toggle =====
+document.getElementById('toggleBtn').addEventListener('click',()=>{
+  if(mode==='cup'){mode='human';cg.visible=false;hg.visible=true;document.getElementById('title').textContent='人像锚定方位标记系统';document.getElementById('toggleBtn').textContent='切换杯子';}
+  else{mode='cup';cg.visible=true;hg.visible=false;document.getElementById('title').textContent='锚定杯方位标记系统';document.getElementById('toggleBtn').textContent='切换人像';}
+});
+
+// ===== Rotation =====
+const rx=document.getElementById('rx'),ry=document.getElementById('ry'),rz=document.getElementById('rz');
+const rxv=document.getElementById('rxv'),ryv=document.getElementById('ryv'),rzv=document.getElementById('rzv');
+const ad=document.getElementById('ad');
+
+function setRot(){
+  ag.rotation.set(
+    parseFloat(rx.value)*Math.PI/180,
+    parseFloat(ry.value)*Math.PI/180,
+    parseFloat(rz.value)*Math.PI/180
+  );
+  rxv.textContent=rx.value+'°';ryv.textContent=ry.value+'°';rzv.textContent=rz.value+'°';
+  ad.innerHTML=`X: ${rx.value}°<br>Y: ${ry.value}°<br>Z: ${rz.value}°<br>(沿物体自身XYZ轴)`;
+  updateAxisVis();
+}
+[rx,ry,rz].forEach(s=>s.addEventListener('input',setRot));
+
+// Reset button: reset all three axes to 0
+document.getElementById('resetBtn').addEventListener('click',()=>{
+  rx.value=0; ry.value=0; rz.value=0; setRot();
+});
+
+// Mouse drag rotate
+let md=false,mx=0,my=0,srx=0,sry=0;
+canvas.addEventListener('pointerdown',e=>{md=true;mx=e.clientX;my=e.clientY;srx=parseFloat(rx.value);sry=parseFloat(ry.value);canvas.setPointerCapture(e.pointerId);});
+canvas.addEventListener('pointermove',e=>{
+  if(!md)return;
+  const dx=e.clientX-mx, dy=e.clientY-my;
+  ry.value=Math.max(-180,Math.min(180,sry+dx*0.5))|0;
+  rx.value=Math.max(-180,Math.min(180,srx-dy*0.5))|0;
+  setRot();
+});
+canvas.addEventListener('pointerup',e=>{md=false;try{canvas.releasePointerCapture(e.pointerId);}catch(e){}});
+
+setRot();
+
+// ===== Image Upload =====
+const fupI=document.getElementById('fupI');
+const ip=document.getElementById('ip');
+const refImg=document.getElementById('refImg');
+const mkrOv=document.getElementById('mkrOv');
+const rmImg=document.getElementById('rmImg');
+let markers=[],actDir=null,mkConfirmed=false;
+
+fupI.addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=ev=>{refImg.src=ev.target.result;ip.style.display='block';};
+  r.readAsDataURL(f);
+});
+rmImg.addEventListener('click',e=>{e.stopPropagation();ip.style.display='none';refImg.src='';markers=[];mkConfirmed=false;fupI.value='';updateMC();});
+
+// Direction buttons
+document.querySelectorAll('#mc button[data-d]').forEach(b=>{
+  b.addEventListener('click',e=>{
+    e.stopPropagation();
+    if(mkConfirmed)return;
+    actDir=actDir===b.dataset.d?null:b.dataset.d;
+    document.querySelectorAll('#mc button[data-d]').forEach(x=>x.classList.remove('act'));
+    if(actDir)b.classList.add('act');
+  });
+});
+
+// Marker placement (click vs drag)
+let pDown=false,pDrag=false,pSX=0,pSY=0,pSL=0,pST=0;
+const TH=5;
+ip.addEventListener('pointerdown',e=>{
+  if(e.target.tagName==='BUTTON')return;
+  pDown=true;pDrag=false;pSX=e.clientX;pSY=e.clientY;
+  const r=ip.getBoundingClientRect(),cr=document.getElementById('cc').getBoundingClientRect();
+  pSL=r.left-cr.left;pST=r.top-cr.top;
+  ip.setPointerCapture(e.pointerId);e.stopPropagation();
+});
+ip.addEventListener('pointermove',e=>{
+  if(!pDown)return;
+  const dx=e.clientX-pSX,dy=e.clientY-pSY;
+  if(Math.abs(dx)>TH||Math.abs(dy)>TH)pDrag=true;
+  if(pDrag){ip.style.left=(pSL+dx)+'px';ip.style.top=(pST+dy)+'px';ip.style.right='auto';ip.style.bottom='auto';}
+  e.stopPropagation();
+});
+ip.addEventListener('pointerup',e=>{
+  if(pDown&&!pDrag&&actDir&&!mkConfirmed){
+    const r=mkrOv.getBoundingClientRect();
+    const x=((e.clientX-r.left)/r.width)*100;
+    const y=((e.clientY-r.top)/r.height)*100;
+    if(x>=0&&x<=100&&y>=0&&y<=100)addMkr(actDir,x,y);
+  }
+  pDown=false;try{ip.releasePointerCapture(e.pointerId);}catch(e){}e.stopPropagation();
+});
+
+function addMkr(dir,x,y){
+  const m={dir,x,y};
+  const el=document.createElement('div');
+  el.className='mkr mk-'+({'前':'f','后':'b','左':'l','右':'r'})[dir];
+  el.style.left=x+'%';el.style.top=y+'%';el.textContent=dir;
+  el.addEventListener('click',ev=>{ev.stopPropagation();if(!mkConfirmed){el.remove();markers=markers.filter(mk=>mk!==m);}});
+  mkrOv.appendChild(el);m.el=el;markers.push(m);
+}
+
+document.getElementById('cfM').addEventListener('click',e=>{
+  e.stopPropagation();mkConfirmed=true;updateMC();
+  document.querySelectorAll('.mkr').forEach(el=>el.classList.add('locked'));
+});
+document.getElementById('clM').addEventListener('click',e=>{
+  e.stopPropagation();markers=[];mkConfirmed=false;actDir=null;
+  mkrOv.innerHTML='';updateMC();
+});
+function updateMC(){
+  document.querySelectorAll('#mc button[data-d]').forEach(b=>{b.classList.toggle('act',b.dataset.d===actDir);});
+}
+
+// ===== Output =====
+function computeVecs(){
+  const e=ag.rotation;
+  return{
+    front:new THREE.Vector3(0,0,1).applyEuler(e).round().toArray(),
+    back:new THREE.Vector3(0,0,-1).applyEuler(e).round().toArray(),
+    left:new THREE.Vector3(1,0,0).applyEuler(e).round().toArray(),
+    right:new THREE.Vector3(-1,0,0).applyEuler(e).round().toArray(),
+    up:new THREE.Vector3(0,1,0).applyEuler(e).round().toArray(),
+    down:new THREE.Vector3(0,-1,0).applyEuler(e).round().toArray(),
+  };
+}
+function v2s(v){return`(${v.map(n=>n.toFixed(2)).join(', ')})`;}
+
+document.getElementById('genBtn').addEventListener('click',()=>{
+  const xv=rx.value,yv=ry.value,zv=rz.value;
+  const v=computeVecs();
+  const obj=mode==='cup'?'物体':'人体';
+  const objEn=mode==='cup'?'cup':'human';
+  let markerStr='';
+  if(markers.length){
+    markerStr=markers.map(m=>`  - ${m.dir}方: 图片位置(${m.x.toFixed(1)}%, ${m.y.toFixed(1)}%)`).join('\n');
+    markerStr='\n\n辅助定位标记:\n'+markerStr;
+  }
+  // Soft constraint
+  let soft=`物体几何中心处存在一个虚拟三维正交坐标架，由X、Y、Z三条互相垂直的轴构成：
+- X轴：正值方向 = ${obj}自身左侧，负值方向 = ${obj}自身右侧
+- Y轴：正值方向 = ${obj}自身上方，负值方向 = ${obj}自身下方
+- Z轴：正值方向 = ${obj}自身前方，负值方向 = ${obj}自身后方
+
+当前${obj}沿自身各轴的旋转角度：
+- 沿X轴旋转：${xv}°
+- 沿Y轴旋转：${yv}°
+- 沿Z轴旋转：${zv}°
+
+旋转后${obj}自身六方位的空间朝向：
+- 前方朝向：${v2s(v.front)}
+- 后方朝向：${v2s(v.back)}
+- 左侧朝向：${v2s(v.left)}
+- 右侧朝向：${v2s(v.right)}
+- 上方朝向：${v2s(v.up)}
+- 下方朝向：${v2s(v.down)}
+
+约束要求：禁止左右镜像翻转，禁止前后深度颠倒，禁止上下方位错乱。以上坐标架定义的方位为物理真值，模型应严格遵循。${markerStr}`;
+  document.getElementById('so').value=soft;
+
+  // Hard constraint (JSON)
+  let j={
+    coordinate_frame_definition:{
+      origin:"object geometric center",
+      axes:{
+        X:{positive:"object left",negative:"object right"},
+        Y:{positive:"object up",negative:"object down"},
+        Z:{positive:"object front",negative:"object back"}
+      }
+    },
+    euler_rotation_deg:{
+      x:parseInt(xv),y:parseInt(yv),z:parseInt(zv),
+      note:"rotation along object's own XYZ axes, Euler XYZ order"
+    },
+    object_orientation_vectors:{
+      front:v.front,back:v.back,left:v.left,right:v.right,up:v.up,down:v.down
+    },
+    constraints:[
+      "no left-right mirror flip",
+      "no front-back depth reversal",
+      "no up-down confusion",
+      "coordinate frame defines physical ground truth"
+    ],
+    anchor_object_type:objEn
+  };
+  if(markers.length){
+    j.confirmed_image_markers=markers.map(m=>({
+      direction:m.dir,
+      label:({前:'front',后:'back',左:'left',右:'right'})[m.dir],
+      image_position:{x_percent:parseFloat(m.x.toFixed(1)),y_percent:parseFloat(m.y.toFixed(1))}
+    }));
+  }
+  document.getElementById('ho').value=JSON.stringify(j,null,2);
+});
+
+// ===== Render =====
+function loop(){renderer.render(scene,camera);requestAnimationFrame(loop);}
+loop();
+</script>
+</body>
+</html>
